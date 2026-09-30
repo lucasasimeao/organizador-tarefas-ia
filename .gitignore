@@ -1,0 +1,4 @@
+node_modules/
+.env
+tarefas.json
+npm-debug.log*

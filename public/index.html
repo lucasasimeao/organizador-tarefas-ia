@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema Operacional Pessoal | Lucas Simeão</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#17212b',
+            paper: '#f5f6f3',
+            coral: '#ed6a5a',
+            mint: '#c8e6d1',
+            sky: '#cfe8f3',
+            sand: '#f3dfba'
+          },
+          fontFamily: { display: ['Georgia', 'serif'], sans: ['Trebuchet MS', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { background: #f5f6f3; background-image: radial-gradient(#d9dfdc 1px, transparent 1px); background-size: 18px 18px; }
+    .grain { background: rgba(255,255,255,.82); backdrop-filter: blur(8px); }
+    .card-enter { animation: card-enter .35s ease-out both; }
+    @keyframes card-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="min-h-screen text-ink font-sans">
+  <main class="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-10">
+    <header class="mb-8 flex flex-col gap-5 border-b border-ink/15 pb-7 md:flex-row md:items-end md:justify-between">
+      <div>
+        <p class="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-coral">CM Arte & Presentes · UniFECAF</p>
+        <h1 class="font-display text-4xl leading-none sm:text-6xl">Meu dia, em ordem.</h1>
+        <p class="mt-3 max-w-xl text-sm text-ink/65">Transforme uma intenção em um próximo passo claro. A IA organiza cada tarefa para você.</p>
+      </div>
+      <div class="rounded-full border border-ink/15 bg-white/60 px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink/60">Fuso: São Paulo</div>
+    </header>
+
+    <section class="grain mb-8 rounded-2xl border border-ink/10 p-4 shadow-sm sm:p-6" aria-labelledby="nova-tarefa-titulo">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <h2 id="nova-tarefa-titulo" class="font-display text-2xl">O que precisa acontecer?</h2>
+        <span id="contador" class="text-xs text-ink/50">0/500</span>
+      </div>
+      <form id="form-tarefa" class="flex flex-col gap-3 sm:flex-row">
+        <input id="entrada-tarefa" name="frase" maxlength="500" required autocomplete="off" class="min-h-12 flex-1 rounded-xl border border-ink/15 bg-white px-4 text-base outline-none transition focus:border-coral focus:ring-2 focus:ring-coral/20" placeholder="Ex.: Configurar o OrcaSlicer para PETG até meio-dia" aria-label="Descreva sua tarefa">
+        <button id="botao-enviar" type="submit" class="min-h-12 rounded-xl bg-ink px-6 font-bold text-white transition hover:bg-coral disabled:cursor-wait disabled:opacity-60">Organizar tarefa</button>
+      </form>
+      <p id="mensagem" class="mt-3 min-h-5 text-sm" role="status"></p>
+    </section>
+
+    <section aria-labelledby="quadro-titulo">
+      <div class="mb-4 flex items-end justify-between"><h2 id="quadro-titulo" class="font-display text-3xl">Quadro de foco</h2><span id="total-tarefas" class="text-sm text-ink/55">Carregando...</span></div>
+      <div id="quadro" class="grid gap-4 lg:grid-cols-4"></div>
+    </section>
+
+    <section class="mt-10" aria-labelledby="painel-titulo">
+      <div class="mb-4 flex items-end justify-between gap-3"><h2 id="painel-titulo" class="font-display text-3xl">Painel da semana</h2><span id="periodo-semana" class="text-sm text-ink/55"></span></div>
+      <div id="metricas" class="mb-4 grid gap-3 sm:grid-cols-3"></div>
+    </section>
+
+    <section class="grain mt-8 rounded-2xl border border-ink/10 p-4 shadow-sm sm:p-6" aria-labelledby="compromisso-titulo">
+      <div class="mb-4"><h2 id="compromisso-titulo" class="font-display text-2xl">Planejamento e compromissos</h2><p class="mt-1 text-sm text-ink/60">Fale com a IA no campo acima. Frases com data ou horário entram automaticamente no calendário e permanecem ligadas à tarefa.</p></div>
+      <div id="calendario" class="mt-4 grid gap-3 md:grid-cols-7"></div>
+    </section>
+  </main>
+
+  <script>
+    const colunas = [
+      { numero: 1, titulo: 'Fazer agora', subtitulo: 'Urgente + importante', cor: 'coral' },
+      { numero: 2, titulo: 'Agendar', subtitulo: 'Importante', cor: 'mint' },
+      { numero: 3, titulo: 'Resolver rápido', subtitulo: 'Urgente', cor: 'sky' },
+      { numero: 4, titulo: 'Arquivo', subtitulo: 'Baixa prioridade', cor: 'sand' }
+    ];
+    const quadro = document.querySelector('#quadro');
+    const form = document.querySelector('#form-tarefa');
+    const entrada = document.querySelector('#entrada-tarefa');
+    const mensagem = document.querySelector('#mensagem');
+    const contador = document.querySelector('#contador');
+    const botao = document.querySelector('#botao-enviar');
+    const metricas = document.querySelector('#metricas');
+    const calendario = document.querySelector('#calendario');
+    const periodoSemana = document.querySelector('#periodo-semana');
+    let tarefas = [];
+
+    function definirTexto(elemento, valor) {
+      elemento.textContent = String(valor ?? '');
+      return elemento;
+    }
+
+    function formatarData(data) {
+      return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(data));
+    }
+
+    function inicioDaSemana(data = new Date()) {
+      const inicio = new Date(data);
+      const dia = inicio.getDay();
+      inicio.setHours(0, 0, 0, 0);
+      inicio.setDate(inicio.getDate() - (dia === 0 ? 6 : dia - 1));
+      return inicio;
+    }
+
+    function chaveData(data) {
+      const valor = new Date(data);
+      return `${valor.getFullYear()}-${String(valor.getMonth() + 1).padStart(2, '0')}-${String(valor.getDate()).padStart(2, '0')}`;
+    }
+
+    function renderizarPainel() {
+      const compromissos = tarefas.filter((tarefa) => tarefa.agendamento).map((tarefa) => ({
+        id: tarefa.id,
+        titulo: tarefa.titulo,
+        inicio: tarefa.agendamento,
+        contexto: tarefa.contexto
+      }));
+      const inicio = inicioDaSemana();
+      const fim = new Date(inicio);
+      fim.setDate(fim.getDate() + 6);
+      periodoSemana.textContent = `${inicio.toLocaleDateString('pt-BR')} a ${fim.toLocaleDateString('pt-BR')}`;
+      const semana = compromissos.filter((compromisso) => {
+        const data = new Date(compromisso.inicio);
+        return data >= inicio && data < new Date(fim.getFullYear(), fim.getMonth(), fim.getDate() + 1);
+      });
+      const cards = [
+        ['Tarefas no quadro', tarefas.length, 'total'],
+        ['Prioridades imediatas', tarefas.filter((tarefa) => Number(tarefa.matriz) === 1).length, 'coral'],
+        ['Compromissos da semana', semana.length, 'mint']
+      ];
+      metricas.replaceChildren(...cards.map(([titulo, valor, cor]) => {
+        const card = document.createElement('article');
+        card.className = 'rounded-2xl border border-ink/10 bg-white/70 p-4';
+        const label = definirTexto(document.createElement('p'), titulo);
+        label.className = 'text-xs font-bold uppercase tracking-wide text-ink/50';
+        const numero = definirTexto(document.createElement('strong'), valor);
+        numero.className = `mt-2 block font-display text-4xl ${cor === 'coral' ? 'text-coral' : cor === 'mint' ? 'text-emerald-700' : ''}`;
+        card.append(label, numero);
+        return card;
+      }));
+      calendario.replaceChildren(...Array.from({ length: 7 }, (_, indice) => {
+        const data = new Date(inicio);
+        data.setDate(inicio.getDate() + indice);
+        const dia = document.createElement('section');
+        dia.className = 'min-h-36 rounded-xl border border-ink/10 bg-white/70 p-3';
+        const titulo = definirTexto(document.createElement('h3'), data.toLocaleDateString('pt-BR', { weekday: 'short' }));
+        titulo.className = 'font-bold capitalize';
+        const dataTexto = definirTexto(document.createElement('p'), data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+        dataTexto.className = 'mb-3 text-xs text-ink/50';
+        dia.append(titulo, dataTexto);
+        semana.filter((compromisso) => chaveData(compromisso.inicio) === chaveData(data)).forEach((compromisso) => {
+          const item = document.createElement('article');
+          item.className = 'mb-2 rounded-lg bg-mint/50 p-2 text-xs';
+          const horario = new Date(compromisso.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          const texto = definirTexto(document.createElement('p'), `${horario} · ${compromisso.titulo}`);
+          texto.className = 'font-bold';
+          const contexto = definirTexto(document.createElement('p'), compromisso.contexto);
+          contexto.className = 'mt-1 text-ink/60';
+          const remover = document.createElement('button');
+          remover.type = 'button';
+          remover.className = 'mt-1 text-[11px] text-ink/45 hover:text-coral';
+          remover.textContent = 'Remover';
+          remover.addEventListener('click', () => removerTarefa(compromisso.id));
+          item.append(texto, contexto, remover);
+          dia.appendChild(item);
+        });
+        return dia;
+      }));
+    }
+
+    function criarColuna(coluna) {
+      const secao = document.createElement('section');
+      secao.className = 'flex min-h-64 flex-col rounded-2xl border border-ink/10 bg-white/70 p-4';
+      const cabecalho = document.createElement('div');
+      cabecalho.className = 'mb-4 flex items-start justify-between gap-2';
+      const textos = document.createElement('div');
+      const titulo = definirTexto(document.createElement('h3'), coluna.titulo);
+      titulo.className = 'font-bold';
+      const subtitulo = definirTexto(document.createElement('p'), coluna.subtitulo);
+      subtitulo.className = 'mt-1 text-xs text-ink/50';
+      textos.append(titulo, subtitulo);
+      const numero = definirTexto(document.createElement('span'), coluna.numero);
+      numero.className = `flex h-7 w-7 items-center justify-center rounded-full bg-${coluna.cor} text-xs font-bold`;
+      cabecalho.append(textos, numero);
+      const lista = document.createElement('div');
+      lista.className = 'lista-tarefas flex flex-1 flex-col gap-3';
+      lista.dataset.matriz = coluna.numero;
+      secao.append(cabecalho, lista);
+      return secao;
+    }
+
+    function renderizar() {
+      quadro.replaceChildren(...colunas.map(criarColuna));
+      tarefas.forEach((tarefa) => {
+        const lista = quadro.querySelector(`[data-matriz="${Number(tarefa.matriz)}"]`);
+        if (!lista) return;
+        const card = document.createElement('article');
+        card.className = 'card-enter rounded-xl border border-ink/10 bg-white p-3 shadow-sm';
+        const topo = document.createElement('div');
+        topo.className = 'mb-2 flex items-start justify-between gap-2';
+        const titulo = definirTexto(document.createElement('h4'), tarefa.titulo);
+        titulo.className = 'font-bold leading-snug';
+        const remover = document.createElement('button');
+        remover.type = 'button';
+        remover.className = 'remover text-lg leading-none text-ink/35 hover:text-coral';
+        remover.setAttribute('aria-label', 'Remover tarefa');
+        remover.textContent = '×';
+        topo.append(titulo, remover);
+        const descricao = definirTexto(document.createElement('p'), tarefa.descricao);
+        descricao.className = 'mb-3 text-sm leading-relaxed text-ink/70';
+        if (tarefa.agendamento) {
+          const agendamento = definirTexto(document.createElement('p'), `Agenda: ${formatarData(tarefa.agendamento)}`);
+          agendamento.className = 'mb-3 rounded-lg bg-mint/50 px-2 py-1 text-xs font-bold text-ink/70';
+          card.append(topo, descricao, agendamento);
+        } else {
+          card.append(topo, descricao);
+        }
+        const rodape = document.createElement('div');
+        rodape.className = 'flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wide text-ink/45';
+        const contexto = definirTexto(document.createElement('span'), tarefa.contexto);
+        const horario = definirTexto(document.createElement('time'), formatarData(tarefa.criadaEm));
+        horario.dateTime = tarefa.criadaEm;
+        rodape.append(contexto, horario);
+        card.append(rodape);
+        remover.addEventListener('click', () => removerTarefa(tarefa.id));
+        lista.appendChild(card);
+      });
+      document.querySelector('#total-tarefas').textContent = `${tarefas.length} ${tarefas.length === 1 ? 'tarefa' : 'tarefas'}`;
+      renderizarPainel();
+    }
+
+    async function carregarTarefas() {
+      try {
+        const resposta = await fetch('/api/tarefas');
+        tarefas = await resposta.json();
+        renderizar();
+      } catch {
+        mensagem.textContent = 'Não foi possível carregar o quadro.';
+        mensagem.className = 'mt-3 min-h-5 text-sm text-coral';
+      }
+    }
+
+    async function removerTarefa(id) {
+      const resposta = await fetch(`/api/tarefas/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (resposta.ok) {
+        tarefas = tarefas.filter((tarefa) => tarefa.id !== id);
+        renderizar();
+      }
+    }
+
+    entrada.addEventListener('input', () => { contador.textContent = `${entrada.value.length}/500`; });
+    form.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      botao.disabled = true;
+      botao.textContent = 'Organizando...';
+      mensagem.textContent = '';
+      try {
+        const resposta = await fetch('/api/tarefas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ frase: entrada.value }) });
+        const dados = await resposta.json();
+        if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível criar a tarefa.');
+        tarefas.unshift(dados);
+        renderizar();
+        form.reset();
+        contador.textContent = '0/500';
+        mensagem.textContent = 'Tarefa organizada com sucesso.';
+        mensagem.className = 'mt-3 min-h-5 text-sm text-emerald-700';
+      } catch (erro) {
+        mensagem.textContent = erro.message;
+        mensagem.className = 'mt-3 min-h-5 text-sm text-coral';
+      } finally {
+        botao.disabled = false;
+        botao.textContent = 'Organizar tarefa';
+      }
+    });
+
+    carregarTarefas();
+  </script>
+</body>
+</html>
