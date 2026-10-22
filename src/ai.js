@@ -1,5 +1,7 @@
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
-const MODELO_GROQ = 'qwen/qwen3.8-27b';
+const MODELO_GROQ = process.env.GROQ_MODEL || 'qwen/qwen3.8-27b';
+const CONTEXTOS_VALIDOS = ['CM 3D', 'UniFECAF', 'Saúde/Lazer'];
+const MATRIZES_VALIDAS = [1, 2, 3, 4];
 
 function dataAtualSaoPaulo() {
   const partes = new Intl.DateTimeFormat('en', {
@@ -82,8 +84,15 @@ async function classificarTarefa(frase, chaveApi) {
     throw new Error('A resposta da IA não está em JSON válido.');
   }
 
-  const contextosValidos = ['CM 3D', 'UniFECAF', 'Saúde/Lazer'];
-  const matrizesValidas = [1, 2, 3, 4];
+  return validarClassificacao(classificacao);
+}
+
+// Não confia cegamente no modelo: só aceita o formato exato antes de salvar.
+function validarClassificacao(classificacao) {
+  if (!classificacao || typeof classificacao !== 'object') {
+    throw new Error('A IA retornou dados fora do formato esperado.');
+  }
+
   const agendamentoValido = classificacao.agendamento === null || (
     typeof classificacao.agendamento === 'string' &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(classificacao.agendamento) &&
@@ -92,9 +101,10 @@ async function classificarTarefa(frase, chaveApi) {
 
   if (
     typeof classificacao.titulo !== 'string' ||
+    !classificacao.titulo.trim() ||
     typeof classificacao.descricao !== 'string' ||
-    !contextosValidos.includes(classificacao.contexto) ||
-    !matrizesValidas.includes(Number(classificacao.matriz)) ||
+    !CONTEXTOS_VALIDOS.includes(classificacao.contexto) ||
+    !MATRIZES_VALIDAS.includes(Number(classificacao.matriz)) ||
     !agendamentoValido
   ) {
     throw new Error('A IA retornou dados fora do formato esperado.');
@@ -109,4 +119,4 @@ async function classificarTarefa(frase, chaveApi) {
   };
 }
 
-module.exports = { classificarTarefa };
+module.exports = { classificarTarefa, validarClassificacao };

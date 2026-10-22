@@ -1,11 +1,12 @@
 {
-  "name": "sistema-operacional-pessoal-lucas-simeao",
+  "name": "organizador-tarefas-ia",
   "version": "1.0.0",
-  "description": "Sistema Operacional Pessoal para organização da rotina da CM Arte & Presentes, estudos e lazer.",
+  "description": "Organizador de tarefas com IA: frase em linguagem natural classificada na Matriz de Eisenhower",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18.0.0"

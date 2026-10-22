@@ -73,11 +73,6 @@ app.delete('/api/tarefas/:id', async (req, res) => {
   }
 });
 
-app.listen(PORTA, () => {
-  console.log(`[OK] Sistema Operacional Pessoal disponível em http://localhost:${PORTA}`);
-  console.log('[INFO] Fuso configurado para America/Sao_Paulo.');
-});
-
 app.get('/api/compromissos', async (req, res) => {
   try {
     const tarefas = await listarTarefas();
@@ -97,3 +92,12 @@ app.get('/api/compromissos', async (req, res) => {
     res.status(500).json({ erro: 'Não foi possível carregar os compromissos.' });
   }
 });
+
+if (require.main === module) {
+  app.listen(PORTA, () => {
+    console.log(`[OK] Organizador de tarefas disponível em http://localhost:${PORTA}`);
+    console.log('[INFO] Fuso configurado para America/Sao_Paulo.');
+  });
+}
+
+module.exports = app;

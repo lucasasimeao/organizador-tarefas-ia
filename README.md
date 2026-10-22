@@ -36,8 +36,8 @@ Foi desenvolvido como parte prática do trabalho acadêmico **"Meu Sistema Opera
 Pré-requisitos: Node.js 18 ou superior e uma chave da [Groq](https://console.groq.com/).
 
 ```bash
-git clone https://github.com/lucasasimeao/trabalho_08.git
-cd trabalho_08
+git clone https://github.com/lucasasimeao/organizador-tarefas-ia.git
+cd organizador-tarefas-ia
 npm install
 cp .env.example .env   # no Windows: copy .env.example .env
 ```
@@ -51,6 +51,7 @@ PORT=3000
 
 ```bash
 npm start        # ou: npm run dev (reinicia ao salvar)
+npm test         # testes da validação da resposta da IA
 ```
 
 Acesse `http://localhost:3000` (ou a porta definida em `PORT`).
@@ -72,6 +73,7 @@ Acesse `http://localhost:3000` (ou a porta definida em `PORT`).
 ├── src/ai.js              # Prompt de sistema, chamada à Groq e validação do JSON
 ├── src/database.js        # Leitura e escrita em tarefas.json
 ├── server.js              # Servidor Express e rotas da API
+├── test/                  # Testes (node:test) da validação do JSON da IA
 ├── 1_Analise_Teorica.md   # Fundamentação teórica do trabalho
 └── .env.example
 ```
